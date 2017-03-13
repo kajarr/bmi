@@ -1,19 +1,18 @@
 %Main File
+load('Data')
 close all
-clear all
 set(0,'DefaultFigureWindowStyle','docked')
 %% Mean Time
-u = [];
+u = []
 load('Eliminate')
-load('Data')
 
 Train = DataSet(trial,[1 50]);
 Train = EliminateUnit(Train,[38,49,52,76],'Spikes');
-%Train = EliminateUnit(Train,u,'Spikes');
+Train = EliminateUnit(Train,u,'Spikes');
 
 Test = DataSet(trial,[51 100]);
 Test = EliminateUnit(Test,[38,49,52,76],'Spikes');
-%Test = EliminateUnit(Test,u,'Spikes');
+Test = EliminateUnit(Test,u,'Spikes');
 
 axis equal
 hold on
@@ -44,32 +43,21 @@ end
 %% Preferred Direction
 [W,E,N] = GetPreDirection(Train,[0,0]);
 
-
 %% Inverse the Weight
 %Final Position Error 
 L = MeanTest(W,Test);
 
 for d = 1:Train.Nd
-Em(d) = (mean(L{d},2));
+Em(d) = norm(mean(L{d},2));
 end
 
 %% Rigid Regression
-close all
-% a = [0,1,5,10;0,1,5,10];
-% 
-% for i = 1:4
-%     for j = 1:4
-%         [W,E,N] = GetPreDirection(Train,[a(i,j),a(i,j)]);
-%         L = MeanTest(W,Test);
-%         figure
-%         for d = 1:Train.Nd
-%         Em(d) = (mean(L{d},2));
-%         
-%         end
-%         waitforbuttonpress
-%         close all
-%     end
-% end
+a = [0,1,5,10;0,1,5,10];
+for i = 1:4
+    for j = 1:4
+       [W,E,N] = GetPreDirection(Train,[a1(i),a2(j)]);
+    end
+end
 
 
 

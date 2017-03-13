@@ -14,7 +14,7 @@ classdef DataSet
     
     methods
         %% Constructor
-        function D = DataSet(data,Ntr)  
+        function D = DataSet(data,N)  
             %Look for every direction
             for d = 1:D.Nd
                 %Temp Struct Time
@@ -23,7 +23,7 @@ classdef DataSet
                 X = zeros(2,D.Nt);
                 V = zeros(2,D.Nt-1);  
                 %Look for every trial
-                for n = Ntr(1):Ntr(2)
+                for n = N(1):N(2)
                     %Local Data    
                     trial = data(n,d);
                     s = trial.spikes(:,2:D.Nt);
@@ -36,10 +36,10 @@ classdef DataSet
                     V = V + v;
                 end
             %Average   
-            N = Ntr(2) - Ntr(1) + 1;   
-            temp.Spikes = S/N;
-            temp.Position = X/N;
-            temp.Velocity = V/N;
+            Ntr = N(2) - N(1) + 1;   
+            temp.Spikes = S/Ntr;
+            temp.Position = X/Ntr;
+            temp.Velocity = V/Ntr;
             %Append
             D.Dir{d} = temp;
             end
@@ -84,18 +84,9 @@ classdef DataSet
                 D.Dir{d}.(Field) = f;
             end
         end
-        function D = UnitVector(D,Field)
-            for d = 1:D.Nd
-                for t = 1:D.Nt-1
-                V = D.Dir{d}.(Field)(:,t);
-                v = norm(V);
-                V = V/v;
-                D.Dir{d}.(Field)(:,t) = V;
-                end
-            end
-        end
+        
         %% Output
-        function [W,E] = GetPreDirection(D,a)
+        function [W,E,N] = GetPreDirection(D,a)
         %Preferred Direction
         temp = [];
             V = [];
@@ -107,16 +98,40 @@ classdef DataSet
                 f = D.Dir{d}.FiringRate'; 
                 F = [F;f];               
             end
-            B = (V'*V+a(1)*ones(2,2))^-1*V'*F;
+            %Add Line Constant
+            [Nv,~]  = size(V); 
+            V = [ones(Nv,1),V];
+            
+            B = (V'*V+a(1)*ones(3,3))^-1*V'*F;
+            Bm = mean(B,2);
+            
+            %Norm
+            N = [];
+            for i = 1:D.Nn
+                %B(:,i) = B(:,i) - Bm; 
+                N(i) = norm(B(:,i));
+            end
+            
+            %Preferred Direction
+            figure
+            hold on
+            for i = 1:D.Nn
+                plot([0,B(2,i)],[0,B(3,i)])
+            end
+            %Error
             E = F-V*B;
+            %Error Bar 
+            figure
+            bar(mean(abs(E)))
+            
             %Variance of the Residuals
             s = ones(1,D.Nn)./var(E);
             S = diag(s);
-            W = pinv(B*S*B' + a(2)*ones(2,2))*B*S;
+            W = pinv(B*S*B' + a(2)*ones(3,3))*B*S;
         end
         
         %% Test
-        function [] = MeanTest(W,Test)
+        function L = MeanTest(W,Test)
             %Create Figure
             h1 = figure();
             hold on
@@ -125,29 +140,46 @@ classdef DataSet
             subplot(2,4,1);
             
             %For Each Direction
+            L = {};
             for d = 1:Test.Nd
                 %Plot X and V
                 F = Test.Dir{d}.FiringRate;
-                X = zeros(2,Test.Nt);
-                V = zeros(2,Test.Nt-1);
+                X = zeros(3,Test.Nt);
+                V = zeros(3,Test.Nt-1);
                     for t = 1:Test.Nt-1
                         %Regress
                         V(:,t) = W*(F(:,t));
                         X(:,t+1) = X(:,t) + V(:,t);    
                     end
-                figure(h1) 
-                plot(X(1,:),X(2,:))
+                    
+                %Position
+                figure(h1)
+                plot(X(2,:),X(3,:))
+                
+                %Error
+                Vreal = Test.Dir{d}.Velocity;
+                L{d} = [ones(1,Test.Nt-1);Vreal] - V;
                 
                 figure(h2)
                 subplot(2,4,d)
                 hold on
                 l = plot(V');
-                set(l(1),'Color','b')
-                set(l(2),'Color','b','LineStyle','--')
-                l = plot(Test.Dir{d}.Velocity');
+                set(l(2),'Color','b')
+                set(l(3),'Color','b','LineStyle','--')
+                l = plot(Vreal');
                 set(l(1),'Color','r')
                 set(l(2),'Color','r','LineStyle','--')
             end 
+        end
+    end
+
+    methods (Static)
+        %Produce Unit Vector
+        function V = UnitVector(V,Nn)
+           for i = 1:Nn
+               v = norm(V(:,i));
+               V(:,i) = V(:,i)/v; 
+           end
         end
     end
 end
