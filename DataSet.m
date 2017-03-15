@@ -19,22 +19,22 @@ classdef DataSet
             for d = 1:D.Nd
                 %Temp Struct Time
                 temp = struct;
-                S = zeros(D.Nn,D.Nt-1);
-                X = zeros(2,D.Nt);
-                V = zeros(2,D.Nt-1);  
+                S = zeros(D.Nn,D.Nt);
+                X = zeros(2,D.Nt+1);
+                V = zeros(2,D.Nt);  
                 %Look for every trial
                 for n = N(1):N(2)
                     %Local Data    
                     trial = data(n,d);
-                    s = trial.spikes(:,2:D.Nt);
-                    x = trial.handPos(1:2,1:D.Nt);
+                    s = trial.spikes(:,1:D.Nt);
+                    x = trial.handPos(1:2,1:D.Nt+1);
                     v = diff(x')';
                     %Spike, Position, Velocity,TrialMean
                     %Trial
                     S = S + s;
                     X = X + x;
                     V = V + v;
-                end
+                end   
             %Average   
             Ntr = N(2) - N(1) + 1;   
             temp.Spikes = S/Ntr;
@@ -84,9 +84,20 @@ classdef DataSet
                 D.Dir{d}.(Field) = f;
             end
         end
+        %Displace
+        function D = Lag(D,Field,Lag)
+            for d = 1:D.Nd
+                X = D.Dir{d}.(Field);
+                [Nx,~] = size(X);
+                Y = zeros(Nx,D.Nt);
+                XLag = lagmatrix(X',-Lag)';
+                Y(:,1:end-Lag) = XLag(:,1:end-Lag);
+                D.Dir{d}.(Field) = Y;
+            end
+        end
         
         %% Output
-        function [W,E,N] = GetPreDirection(D,a)
+        function [W,B,E] = GetPreDirection(D,a)
         %Preferred Direction
         temp = [];
             V = [];
@@ -101,29 +112,9 @@ classdef DataSet
             %Add Line Constant
             [Nv,~]  = size(V); 
             V = [ones(Nv,1),V];
-            
             B = (V'*V+a(1)*ones(3,3))^-1*V'*F;
-            Bm = mean(B,2);
-            
-            %Norm
-            N = [];
-            for i = 1:D.Nn
-                %B(:,i) = B(:,i) - Bm; 
-                N(i) = norm(B(:,i));
-            end
-            
-            %Preferred Direction
-            figure
-            hold on
-            for i = 1:D.Nn
-                plot([0,B(2,i)],[0,B(3,i)])
-            end
             %Error
             E = F-V*B;
-            %Error Bar 
-            figure
-            bar(mean(abs(E)))
-            
             %Variance of the Residuals
             s = ones(1,D.Nn)./var(E);
             S = diag(s);
@@ -131,35 +122,34 @@ classdef DataSet
         end
         
         %% Test
-        function L = MeanTest(W,Test)
+        function [Ve] = MeanTest(W,Test)
             %Create Figure
             h1 = figure();
             hold on
             axis equal
             h2 = figure();
             subplot(2,4,1);
-            
             %For Each Direction
-            L = {};
             for d = 1:Test.Nd
                 %Plot X and V
                 F = Test.Dir{d}.FiringRate;
-                X = zeros(3,Test.Nt);
-                V = zeros(3,Test.Nt-1);
-                    for t = 1:Test.Nt-1
+                X = zeros(3,Test.Nt+1);
+                V = zeros(3,Test.Nt);
+                    for t = 1:Test.Nt
                         %Regress
                         V(:,t) = W*(F(:,t));
                         X(:,t+1) = X(:,t) + V(:,t);    
                     end
-                    
                 %Position
                 figure(h1)
-                plot(X(2,:),X(3,:))
-                
-                %Error
+                hold on
+                plot(X(2,:),X(3,:),'b')
+                Xreal = Test.Dir{d}.Position;
+                Xreal = Xreal - Xreal(:,1);
+                plot(Xreal(1,:),Xreal(2,:),'r')
+                %Velocity 
                 Vreal = Test.Dir{d}.Velocity;
-                L{d} = [ones(1,Test.Nt-1);Vreal] - V;
-                
+                Ve = Vreal - V(2:3,:);
                 figure(h2)
                 subplot(2,4,d)
                 hold on
@@ -171,6 +161,7 @@ classdef DataSet
                 set(l(2),'Color','r','LineStyle','--')
             end 
         end
+        
     end
 
     methods (Static)
@@ -181,5 +172,22 @@ classdef DataSet
                V(:,i) = V(:,i)/v; 
            end
         end
+        %Test
+        function [Fe] = TrialTest(B,w,trial,N)
+            Fe = [];
+            h = waitbar(0,'Computing Noise Covariance');    
+            for n = N(1):N(2)
+                Test = DataSet(trial,[n n]);
+                Test = EliminateUnit(Test,[38,49,52,76],'Spikes');
+                Test = Convolution(Test,w,'Spikes','FiringRate');
+                for d = 1:Test.Nd
+                    V = [ones(Test.Nt,1), Test.Dir{d}.Velocity'];
+                    F = Test.Dir{d}.FiringRate';
+                    Fe = [Fe;F - V*B]; 
+                end
+                waitbar((n-N(1))/(N(2)-N(1)))
+            end
+            close(h);
+        end   
     end
 end

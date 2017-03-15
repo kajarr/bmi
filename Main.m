@@ -1,19 +1,15 @@
 %Main File
 close all
-clear all
+clear
 set(0,'DefaultFigureWindowStyle','docked')
 %% Mean Time
-u = [];
-load('Eliminate')
 load('Data')
 
 Train = DataSet(trial,[1 50]);
 Train = EliminateUnit(Train,[38,49,52,76],'Spikes');
-%Train = EliminateUnit(Train,u,'Spikes');
 
-Test = DataSet(trial,[51 100]);
+Test = DataSet(trial,[51 52]);
 Test = EliminateUnit(Test,[38,49,52,76],'Spikes');
-%Test = EliminateUnit(Test,u,'Spikes');
 
 axis equal
 hold on
@@ -29,11 +25,9 @@ end
 
 %% Firing Rate
 x = -5:0.5:5;
-w = gaussmf(-5:0.5:5,[-5:0.5:5 0]);
+w = gaussmf(-5:0.5:5,[5 0]);
 Train = Convolution(Train,w,'Spikes','FiringRate');
-%Train = BaseLineNormalisation(Train,'FiringRate',300);
 Test = Convolution(Test,w,'Spikes','FiringRate');
-%Test = BaseLineNormalisation(Test,'FiringRate',300);
 
 figure
 for d = 1:Train.Nd
@@ -42,35 +36,18 @@ for d = 1:Train.Nd
     imagesc(F)
 end
 %% Preferred Direction
-[W,E,N] = GetPreDirection(Train,[0,0]);
-
+%Regression
+[W,B,E] = GetPreDirection(Train,[1,1]);
 
 %% Inverse the Weight
 %Final Position Error 
-L = MeanTest(W,Test);
+Etrack = MeanTest(W,Test);
 
-for d = 1:Train.Nd
-Em(d) = (mean(L{d},2));
-end
-
-%% Rigid Regression
-close all
-% a = [0,1,5,10;0,1,5,10];
-% 
-% for i = 1:4
-%     for j = 1:4
-%         [W,E,N] = GetPreDirection(Train,[a(i,j),a(i,j)]);
-%         L = MeanTest(W,Test);
-%         figure
-%         for d = 1:Train.Nd
-%         Em(d) = (mean(L{d},2));
-%         
-%         end
-%         waitforbuttonpress
-%         close all
-%     end
-% end
-
+%% Statistic
+[Fe] = DataSet.TrialTest(B,w,trial,[52 100]);
+Q = cov(Fe);
+figure
+surf(V)
 
 
 
