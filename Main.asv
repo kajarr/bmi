@@ -37,10 +37,9 @@ Q = [zeros(Na,1),Q];
 Q = [zeros(1,Na+1);Q];
 R = diag(diag(R));
 H = B';
+zo = B(1,:);
 %Kalman Filter
 K = KalmanDecoder(A,Q,H,R);
-A = eye(3);
-Q = eye(3);
 
 %% Test
 h1 = figure;

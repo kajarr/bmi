@@ -166,13 +166,11 @@ classdef DataSet
                 %Concate and Shift
                 %xold = [p(:,1:end-1);v(:,1:end-1)];
                 %xnew = [p(:,2:end);v(:,2:end)]; 
-                xold = v(:,1:end-1);
-                xnew = v(:,2:end);
                 Xold = [Xold,xold];
                 Xnew = [Xnew,xnew];
             end
             %Regression
-            A = Xnew*Xold'*(Xold*Xold' + L*eye(2))^-1;
+            A = Xnew*Xold'*(Xold*Xold' + L*eye(4))^-1;
         end
         %Residuals
         function [Q,R] = Residual(D,A,B)
@@ -188,10 +186,8 @@ classdef DataSet
                     %Velocity
                     v = D.Test{n,d}.Velocity;
                     x = D.Test{n,d}.Position(:,1:end-1);
-                    %xold = [x(:,1:end-1);v(:,1:end-1)];
-                    %xnew = [x(:,2:end);v(:,2:end)];
-                    xold = [v(:,1:end-1)];
-                    xnew = [v(:,2:end)]; 
+                    xold = [x(:,1:end-1);v(:,1:end-1)];
+                    xnew = [x(:,2:end);v(:,2:end)]; 
                     EA = [EA,xnew-A*xold];
                 end
                 waitbar(n/D.NTest);
