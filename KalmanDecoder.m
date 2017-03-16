@@ -22,7 +22,7 @@ classdef KalmanDecoder
             Filter.R = R;
             %Corretion
             [n,m] = size(Q);
-            Filter.P = eye(Filter.Nx);
+            Filter.P = eye(n);
         end
         %% Update
         function [Filter,XNew] = KalmanUpdate(Filter,XOld,Z)

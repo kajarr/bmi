@@ -1,0 +1,23 @@
+function P = GetP(Data)
+%Preferred Direction
+
+for i = 1:98
+    %For Every Direction
+    Vd = [];
+    Fd = [];
+        
+        for d = 1:8
+        n = Data{1}.Length;
+        v = Data{d}.Velocity;
+       
+        V = [ones(1,n);v]';
+        F = Data{d}.Spikes(i,:)';
+        
+        Vd = [Vd;V];
+        Fd  = [F;Fd];
+        end
+        
+        p = inv(Vd)*Fd;
+        P = [P]
+end
+end

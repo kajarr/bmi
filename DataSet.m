@@ -1,7 +1,7 @@
 classdef DataSet
     %% Define Properties
     properties (Constant)
-    Nt = 1000;
+    Nt = 570;
     Nd = 8;
     Ntr = 100;
     NTrain = 1;
@@ -33,12 +33,17 @@ classdef DataSet
                     trial = data(n,d);
                     %Spikes
                     s = trial.spikes(:,1:end);
-                    [~,Ns] = size(s);
-                    S(:,1:Ns) = S(:,1:Ns) + s;
+                    [~,Nsample] = size(s);
+                    %If to large
+                    if Nsample > D.Nt
+                        clear s
+                        Nsample = D.Nt;
+                        s = trial.spikes(:,1:Nsample);
+                    end
+                    S(:,1:Nsample) = S(:,1:Nsample) + s;
                     %Position-Velocity
-                    x = trial.handPos(1:2,1:end);
-                    [~,Nx] = size(x);
-                    x = [x, x(:,end).*ones(2,D.Nt+1-Nx)];
+                    x = trial.handPos(1:2,1:Nsample);
+                    x = [x, x(:,end).*ones(2,D.Nt+1-Nsample)];
                     X = X + x;
                     v =  diff(x')';
                     V = V + v;
@@ -69,17 +74,21 @@ classdef DataSet
                     trial = data(n,d);
                     %Size
                     s = trial.spikes(:,1:end);
-                    x = trial.handPos(1:2,1:end);
-                    [~,Ns] = size(s);
-                    [~,Nx] = size(x);
+                    [~,Nsample] = size(s);
+                    if Nsample > D.Nt
+                        clear s
+                        Nsample = D.Nt;
+                        s = trial.spikes(:,1:Nsample);
+                    end
+                    x = trial.handPos(1:2,1:Nsample);
                     %Spikes
-                    S(:,1:Ns) = s;
+                    S(:,1:Nsample) = s;
                     %Position-Velocity
-                    X(:,1:Nx) = x;
+                    X(:,1:Nsample) = x;
                     v =  diff(x')';
-                    V(:,1:Nx-1) = v;
+                    V(:,1:Nsample-1) = v;
                     a = diff(v')';
-                    A(:,1:Nx-2) = a;
+                    A(:,1:Nsample-2) = a;
                     %Append
                     temp.Spikes = S;
                     temp.Position = X;
@@ -136,20 +145,20 @@ classdef DataSet
             V = [];
             F = [];
             for d = 1:D.Nd
-                v = D.Train{1,d}.Velocity';
-                V = [V;v];
+                v = D.Train{1,d}.Velocity;
+                V = [V,v];
                 %Firing Matrix
-                f = D.Train{1,d}.FiringRate'; 
-                F = [F;f];               
+                f = D.Train{1,d}.FiringRate; 
+                F = [F,f];               
             end
             %Add Line Constant
-            [Nv,~]  = size(V); 
-            V = [ones(Nv,1),V];
-            B = (V'*V+L*ones(3,3))^-1*V'*F;
+            [~,Nv]  = size(V); 
+            V = [ones(1,Nv);V];
+            B = F*V'*(V*V' + L*eye(3))^-1;
             figure
             hold on 
             for i = 1:D.Nn
-                plot([0,B(2,i)],[0,B(3,i)])
+                plot([0,B(i,2)],[0,B(i,3)])
             end
         end
         %Auto-Regressive Model
@@ -158,22 +167,18 @@ classdef DataSet
             Xold = [];
             Xnew = [];
             %Collecting
+            P = [];
             for d = 1:D.Nd
                 %Position-Velocity
-                bd = [290,650];
+                bd = [290,570];
                 p = D.Train{1,d}.Position(:,bd(1):bd(2));
-                v = D.Train{1,d}.Velocity(:,bd(1):bd(2));
-                %Concate and Shift
-                %xold = [p(:,1:end-1);v(:,1:end-1)];
-                %xnew = [p(:,2:end);v(:,2:end)]; 
-                xold = v(:,1:end-1);
-                xnew = v(:,2:end);
-                Xold = [Xold,xold];
-                Xnew = [Xnew,xnew];
+                P = [P,p];
             end
+            [X,x] = DataSet.Shift(y,2);
             %Regression
-            A = Xnew*Xold'*(Xold*Xold' + L*eye(2))^-1;
+            A = X*x'*(x*x' + L*eye(2))^-1;
         end
+        
         %Residuals
         function [Q,R] = Residual(D,A,B)
             EB = [];
@@ -228,6 +233,24 @@ classdef DataSet
             for d = 1:D.Nd
                 subplot(2,4,d)
                 imagesc(D.Train{1,d}.FiringRate)
+            end
+        end
+    end
+    
+    %% Other Method
+    methods (Static)
+        function [X,x] = Shift(y,n)
+            Y  = {};
+            for z = 1:n+1
+            Y{z} = y(:,z:end-(n+1-z));
+            end
+            x = [];
+            for z = 1:n
+            x = [Y{z};x];
+            end
+            X = [];
+            for z = 2:n+1
+            X = [Y{z};X];
             end
         end
     end
