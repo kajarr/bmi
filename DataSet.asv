@@ -145,20 +145,20 @@ classdef DataSet
             V = [];
             F = [];
             for d = 1:D.Nd
-                v = D.Train{1,d}.Velocity;
-                V = [V,v];
+                v = D.Train{1,d}.Velocity';
+                V = [V;v];
                 %Firing Matrix
-                f = D.Train{1,d}.FiringRate; 
-                F = [F,f];               
+                f = D.Train{1,d}.FiringRate'; 
+                F = [F;f];               
             end
             %Add Line Constant
-            [~,Nv]  = size(V); 
-            V = [ones(1,Nv);V];
-            B = F*V'*(V*V' + L*eye(3))^-1;
+            [Nv,~]  = size(V); 
+            V = [ones(Nv,1),V];
+            B = (V'*V+L*ones(3,3))^-1*V'*F;
             figure
             hold on 
             for i = 1:D.Nn
-                plot([0,B(i,2)],[0,B(i,3)])
+                plot([0,B(2,i)],[0,B(3,i)])
             end
         end
         %Auto-Regressive Model
@@ -173,11 +173,12 @@ classdef DataSet
                 bd = [290,570];
                 p = D.Train{1,d}.Position(:,bd(1):bd(2));
                 P = [P,p];
+                [X,x] = DataSet.Shift(y,2);
             end
-            [X,x] = DataSet.Shift(y,2);
             %Regression
             A = X*x'*(x*x' + L*eye(2))^-1;
         end
+        
         
         %Residuals
         function [Q,R] = Residual(D,A,B)
