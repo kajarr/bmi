@@ -8,24 +8,25 @@ load('Data')
 Tuning = DataSet(trial,50);
 
 %% Preprocessing
-%Eliminate Neuron
-Tuning = EliminateUnit(Tuning,[38,49,52,76],'Spikes');
 %Firing Rate
-x = -5:0.5:5;
+x = -5:0.1:5;
 w = gaussmf(x,[2.5 0]);
 Tuning = Convolution(Tuning,w);
 %Plot
 PlotTuning(Tuning)
+%PCA
+Tuning = PCA(Tuning);
+
 
 %% Regression
 %Preferred Direction
 B = GetPreDirection(Tuning,0);
 %AutoRegressive Model
-%A = AutoRegression(Tuning,0);
+A = AutoRegression(Tuning,0,2);
 %Residual Errors
-%[Q,R] = Residual(Tuning,A,B);
+[Q,R] = Residual(Tuning,A,B);
 %save('Noise','Q','R');
-load('Noise')
+%load('Noise')
 
 %% Kalman Filter
 %Prepare
@@ -33,32 +34,29 @@ load('Noise')
 T = [1 0 -1 0;0 1 0 -1];
 H = B(:,2:3)*T;
 zo = B(:,1);
-A = eye(4);
-Q = eye(4);
+R = diag(diag(R));
 %Kalman Filter
 K = KalmanDecoder(A,Q,H,R);
 
 
 %% Test
-h1 = figure;
-h2 = figure;
-hold on
+figure;
 axis equal
-X = [];
-for d = 1:Tuning.Nd
-F = Tuning.Train{1,d}.FiringRate;
-x = [0,0,0,0]';
-    %Iterate
-    for t = 2:Tuning.Nt
-        z = F(:,t) - zo;
-        [K,v] = KalmanUpdate(K,x,z); 
-        X = [X,x];
+for n = 1:9
+    for d = 1:Tuning.Nd
+    X = [];
+    F = Tuning.Test{n,d}.Subspace;
+    x = [0,0,0,0]';
+        %Iterate
+        for t = 1:Tuning.Nt
+            z = F(:,t)-zo;
+            [K,x] = KalmanUpdate(K,x,z); 
+            X = [X,x];
+        end
+        subplot(3,3,n)
+        hold on
+        plot(X(1,:),X(2,:))
     end
-    figure(h1)
-    hold on
-    plot(X(2,:),X(3,:))
-    figure(h2)
-    plot(V')
 end
 
 
