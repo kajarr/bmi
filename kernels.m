@@ -3,7 +3,6 @@ close all
 x = -10:0.1:10;
 gk = gaussk(x, 0, 1);
 ek = expk(x, 0, 1);
-ck = cauk(x, 5);
 ck2 = cauk2(x, -1, 2);
 
 %Kernels
@@ -32,19 +31,7 @@ ar = (s * sqrt(2));
 f = (1/ar)*exp(ex);
 end
 %Causal kernel
-function hw = cauk(x,a)
-f = exp(-(1/2)*(a*(x-(max(x)/2))/(max(x)/2)).^2);
-hw = zeros(size(f));
-    for i = 1:length(f)
-        if f(i) > 0.0
-           hw(i) = f(i);
-       else
-           hw(i) = 0.0;
-        end
-    end
-end
-%Causal kernel 2
-function hw = cauk2(x,mu,a)
+function hw = cauk(x,mu,a)
 q = ((a^2)*(x-mu));
 w = exp((-a).*(x-mu));
     for i = 1:length(q)
