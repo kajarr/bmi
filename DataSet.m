@@ -302,9 +302,9 @@ classdef DataSet
             f = (1/ar)*exp(ex);
         end
         %Causal kernel
-        function hw = cauk(x,mu,a)
-            q = ((a^2)*(x-mu));
-            w = exp((-a).*(x-mu));
+        function hw = cauk(x,sp,a)
+            q = ((a^2)*(x-sp));
+            w = exp((-a).*(x-sp));
             for i = 1:length(q)
                 f(i)=q(i)*w(i);
             end
