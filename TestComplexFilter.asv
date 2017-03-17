@@ -1,0 +1,30 @@
+%% Test Complex Filter
+clear 
+close all
+load('TrainFilter');
+x = Out(1:2,:)'/2;
+d = Out(5:6,:)';
+
+z = complex(x(:,1),x(:,2));
+zd = complex(d(:,1),d(:,2));
+
+hold on
+plot(x)
+plot(d)
+
+%%
+w = 0;
+W = [];
+mu = 0.01;
+for k = 1:570
+%Filter output
+y(k) = w*z(k);
+e(k) = zd(k) - y(k);
+w = w + mu*e*conj(x);
+W = [W;w];
+end
+
+figure
+hold on
+plot(Real(W));
+plot(Img(W));

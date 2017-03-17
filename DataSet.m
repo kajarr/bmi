@@ -18,14 +18,14 @@ classdef DataSet
     %% Methods
     methods
         %% Constructor
-        function [D,p] = DataSet(data,NSplit)  
+        function [D] = DataSet(data,NSplit)  
             %% Training
             for d = 1:D.Nd
                 %Temp Struct Time
                 temp = struct;
                 %Empty Array-Zero Pad
                 S = zeros(D.Nn,D.Nt);
-                A = zeros(2,D.Nt-1);
+                %A = zeros(2,D.Nt-1);
                 V = zeros(2,D.Nt);
                 X = zeros(2,D.Nt+1);
                 %Look for every trial
@@ -48,15 +48,23 @@ classdef DataSet
                     X = X + x;
                     v =  diff(x')';
                     V = V + v;
-                    a = diff(v')';
-                    A = A + a;
+                    %a = diff(v')';
+                    %A = A + a;
                 end    
+            %Center
+            Xo = zeros(2,D.Nt+1);
+            Xo(1,:) = X(1,1);
+            Xo(2,:) = X(2,1);
             %Average
             N = NSplit;   
             temp.Spikes = S/N;
-            temp.Position = X/N;
+            temp.Position = (X-Xo)/N;
             temp.Velocity = V/N;
-            temp.Acceleration = A/N;
+            %temp.Acceleration = A/N;
+            %Polar
+            %[Xp,Vp] = DataSet.Polar(X);
+            %temp.PolarVelocity = Xp; 
+            %temp.PolarPosition = Vp;
             %Append
             D.Train{1,d} = temp;
             end
@@ -68,7 +76,7 @@ classdef DataSet
                     temp = struct;
                     %Empty Array-Zero Pad
                     S = zeros(D.Nn,D.Nt);
-                    A = zeros(2,D.Nt-1);
+                    %A = zeros(2,D.Nt-1);
                     V = zeros(2,D.Nt);
                     X = zeros(2,D.Nt+1);
                     %Local Data    
@@ -81,20 +89,29 @@ classdef DataSet
                         Nsample = D.Nt;
                         s = trial.spikes(:,1:Nsample);
                     end
-                    x = trial.handPos(1:2,1:Nsample);
+                    x = trial.handPos(1:2,1:Nsample+1);
                     %Spikes
                     S(:,1:Nsample) = s;
                     %Position-Velocity
-                    X(:,1:Nsample) = x;
+                    X(:,1:Nsample+1) = x;
                     v =  diff(x')';
-                    V(:,1:Nsample-1) = v;
-                    a = diff(v')';
-                    A(:,1:Nsample-2) = a;
-                    %Append
+                    V(:,1:Nsample) = v;
+                    %a = diff(v')';
+                    %A(:,1:Nsample-2) = a;
+                    %Center
+                    Xo = zeros(2,D.Nt+1);
+                    Xo(1,:) = X(1,1);
+                    Xo(2,:) = X(2,1);
+                    %Sort
                     temp.Spikes = S;
-                    temp.Position = X;
+                    temp.Position = X-Xo;
                     temp.Velocity = V;
-                    temp.Acceleration = A;
+                    %temp.Acceleration = A;
+                    %Polar
+                    %[Xp,Vp] = DataSet.Polar(X);
+                    %temp.PolarVelocity = Xp; 
+                    %temp.PolarPosition = Vp;
+                    %Append
                     D.Test{n - NSplit,d} = temp;
                     D.NTest = D.Ntr - NSplit;
                 end    
@@ -218,7 +235,6 @@ classdef DataSet
             %Regression
             A = X*x'*(x*x' + L*eye(2*n))^-1;
         end
-        
         %Residuals
         function [Q,R] = Residual(D,A,B)
             EB = [];
@@ -263,7 +279,15 @@ classdef DataSet
                 subplot(2,4,d)
                 plot(D.Train{1,d}.Velocity')
             end
+%             figure
+%             %Polar Velocity
+%             for d = 1:D.Nd
+%                 subplot(2,4,d)
+%                 plot(D.Train{1,d}.PolarVelocity')
+%             end
+            
             figure
+            %Spike Train
             for d = 1:D.Nd
                 subplot(2,4,d)
                 imagesc(D.Train{1,d}.FiringRate)
@@ -286,6 +310,17 @@ classdef DataSet
             for z = 2:n+1
             X = [Y{z};X];
             end
+        end
+        function [Xp,Vp] = Polar(X)
+           [phi,r] = cart2pol(X(1,:),X(2,:));
+           %Continous Angle
+           phi = unwrap(phi);
+           %Velocity
+           rdot = diff(r);
+           w = diff(phi);
+           %Velocity
+           Xp = [r,phi];
+           Vp = [rdot;r(2:end).*w];    
         end
     end
 end
