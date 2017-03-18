@@ -1,14 +1,14 @@
 classdef DataSet
     %% Define Properties
     properties (Constant)
-    Nt = 570;
     Nd = 8;
-    Ntr = 100;
+    Ntr = 50;
     NTrain = 1;
     Np = 10;
     end
     
     properties
+    Nt = 700;
     Nn = 98
     NTest = 50;
     Train = {};
@@ -44,23 +44,22 @@ classdef DataSet
                     S(:,1:Nsample) = S(:,1:Nsample) + s;
                     %Position-Velocity
                     x = trial.handPos(1:2,1:Nsample);
-                    x = [x, x(:,end).*ones(2,D.Nt+1-Nsample)];
+                    pad = [x(1,end)*ones(1,D.Nt+1-Nsample);x(2,end)*ones(1,D.Nt+1-Nsample)];
+                    x = [x, pad];
                     X = X + x;
                     v =  diff(x')';
                     V = V + v;
-                    %a = diff(v')';
-                    %A = A + a;
+                    clear s x v
                 end    
             %Center
             Xo = zeros(2,D.Nt+1);
             Xo(1,:) = X(1,1);
             Xo(2,:) = X(2,1);
             %Average
-            N = NSplit;   
+            N = NSplit;
             temp.Spikes = S/N;
             temp.Position = (X-Xo)/N;
             temp.Velocity = V/N;
-            %temp.Acceleration = A/N;
             %Polar
             %[Xp,Vp] = DataSet.Polar(X);
             %temp.PolarVelocity = Xp; 
@@ -76,7 +75,6 @@ classdef DataSet
                     temp = struct;
                     %Empty Array-Zero Pad
                     S = zeros(D.Nn,D.Nt);
-                    %A = zeros(2,D.Nt-1);
                     V = zeros(2,D.Nt);
                     X = zeros(2,D.Nt+1);
                     %Local Data    
@@ -89,15 +87,16 @@ classdef DataSet
                         Nsample = D.Nt;
                         s = trial.spikes(:,1:Nsample);
                     end
-                    x = trial.handPos(1:2,1:Nsample+1);
+                    %Padding
+                    x = trial.handPos(1:2,1:Nsample);
+                    pad = [x(1,end)*ones(1,D.Nt+1-Nsample);x(2,end)*ones(1,D.Nt+1-Nsample)];
+                    x = [x, pad];
                     %Spikes
                     S(:,1:Nsample) = s;
                     %Position-Velocity
-                    X(:,1:Nsample+1) = x;
+                    X(:,1:D.Nt+1) = x;
                     v =  diff(x')';
-                    V(:,1:Nsample) = v;
-                    %a = diff(v')';
-                    %A(:,1:Nsample-2) = a;
+                    V = v;
                     %Center
                     Xo = zeros(2,D.Nt+1);
                     Xo(1,:) = X(1,1);
@@ -106,7 +105,6 @@ classdef DataSet
                     temp.Spikes = S;
                     temp.Position = X-Xo;
                     temp.Velocity = V;
-                    %temp.Acceleration = A;
                     %Polar
                     %[Xp,Vp] = DataSet.Polar(X);
                     %temp.PolarVelocity = Xp; 
@@ -114,6 +112,7 @@ classdef DataSet
                     %Append
                     D.Test{n - NSplit,d} = temp;
                     D.NTest = D.Ntr - NSplit;
+                    clear s x v
                 end    
             end
         end   
@@ -137,7 +136,7 @@ classdef DataSet
                             %Convolution 
                             r = conv(w,s(i,:));
                             %Trim
-                            temp(i,:) = r(Nw_half+1:end-Nw_half);
+                            temp(i,:) = r(Nw_half+1:end-Nw_half+1);
                         end
                         D.(Set){n,d}.FiringRate = temp;
                     end
@@ -154,8 +153,44 @@ classdef DataSet
             end
             D.Nn = D.Nn - length(Index);
         end
+        %Mean TimeStep
+        function D = MeanTimeStep(D,T)
+            for d = 1:D.Nd
+                x = D.Train{1,d}.Position;
+                f = D.Train{1,d}.FiringRate;
+                X = mean(x(:,1:T),2);
+                F = mean(f(:,1:T),2);
+                for t = T:T:D.Nt
+                    X = [X,mean(x(:,1:t),2)];
+                    F = [F,mean(f(:,1:t),2)];
+                end
+                X = [X,X(:,end)];
+                V = diff(X')';
+                D.Train{1,d}.Position = X;
+                D.Train{1,d}.Velocity = V;
+                D.Train{1,d}.FiringRate = F;
+            end
+            for n = 1:D.NTest
+                for d = 1:D.Nd
+                x = D.Test{n,d}.Position;
+                f = D.Test{n,d}.FiringRate;
+                X = mean(x(:,1:T),2);
+                F = mean(f(:,1:T),2);
+                for t = T:T:D.Nt
+                    X = [X,mean(x(:,1:t),2)];
+                    F = [F,mean(f(:,1:t),2)];
+                end
+                X = [X,X(:,end)];
+                V = diff(X')';
+                D.Test{n,d}.Position = X;
+                D.Test{n,d}.Velocity = V;
+                D.Test{n,d}.FiringRate = F;    
+                end
+            end
+            D.Nt = length(T:T:D.Nt) + 1;
+        end
         %PCA
-        function D = PCA(D)
+        function [D,p] = PCA(D)
             %Collecting Firing Rate
             F = [];
             for d = 1:D.Nd
@@ -227,8 +262,7 @@ classdef DataSet
             P = [];
             for d = 1:D.Nd
                 %Position-Velocity
-                bd = [290,570];
-                p = D.Train{1,d}.Position(:,bd(1):bd(2));
+                p = D.Train{1,d}.Position;
                 P = [P,p];
             end
             [X,x] = DataSet.Shift(P,n);

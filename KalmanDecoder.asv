@@ -38,7 +38,6 @@ classdef KalmanDecoder
             Filter.P  = (eye(Filter.Nx)-Kg*Filter.H)*Pm;
         end
         function [Filter] = ReInitialise(Filter)
-            [n,~] = size(Filter.P);
             Filter.P = eye(n);
         end
     end

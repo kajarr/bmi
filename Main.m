@@ -5,18 +5,21 @@ set(0,'DefaultFigureWindowStyle','docked')
 
 %% DataSet
 load('Data')
-Tuning = DataSet(trial,50);
+Tuning = DataSet(trial,25);
 
 %% Preprocessing
 %Firing Rate
-x = -5:0.1:5;
-w = gaussmf(x,[2.5 0]);
+x = linspace(-5,5,20);
+w = DataSet.gaussk(x,0,1);
+plot(w)
 Tuning = Convolution(Tuning,w);
+%Mean in Time Bin
+dt = 20;
+Tuning = MeanTimeStep(Tuning,dt);
 %Plot
 PlotTuning(Tuning)
 %PCA
 Tuning = PCA(Tuning);
-
 
 %% Regression
 %Preferred Direction
@@ -26,12 +29,12 @@ Na = 2;
 A = AutoRegression(Tuning,0,Na);
 %Residual Errors
 [Q,R] = Residual(Tuning,A,B);
-save('Noise','Q','R');
+%save('Noise','Q','R');
 %load('Noise')
 
 %% Kalman Filter
 %Prepare
-T = [1 0 -1  0;
+T = 1/dt*[1 0 -1  0;
      0 1  0 -1];
 T = [T,zeros(2,2*(Na-2))];
 H = B(:,2:3)*T;
@@ -59,11 +62,11 @@ for n = 1:9
         figure(h1);
         subplot(3,3,n)
         hold on
-        X = 2*X;
+        X = 10*X;
         plot(X(1,:),X(2,:),'r')
         Xreal = Tuning.Test{n,d}.Position;
         plot(Xreal(1,:),Xreal(2,:),'b');
-        Out = [Out,[X;Xreal(:,1:end-1)]];
+        K = ReInitialise(K);
     end 
 figure(h2);
 subplot(3,3,n)

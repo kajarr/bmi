@@ -6,7 +6,7 @@
 
 function RMSE = testFunction_for_students_MTb(teamName)
 
-load monkeydata0.mat
+load Data.mat
 
 % Set random number generator
 rng(2013);
@@ -36,9 +36,7 @@ for tr=1:size(testData,1)
     pause(0.001)
     for direc=randperm(8) 
         decodedHandPos = [];
-
         times=320:20:size(testData(tr,direc).spikes,2);
-        
         for t=times
             past_current_trial.trialId = testData(tr,direc).trialId;
             past_current_trial.spikes = testData(tr,direc).spikes(:,1:t); 
@@ -61,8 +59,8 @@ for tr=1:size(testData,1)
         end
         n_predictions = n_predictions+length(times);
         hold on
-        plot(decodedHandPos(1,:),decodedHandPos(2,:), 'r');
-        plot(testData(tr,direc).handPos(1,times),testData(tr,direc).handPos(2,times),'b')
+        plot(decodedHandPos(1,:),decodedHandPos(2,:), '-or');
+        plot(testData(tr,direc).handPos(1,times),testData(tr,direc).handPos(2,times),'-ob')
     end
 end
 
