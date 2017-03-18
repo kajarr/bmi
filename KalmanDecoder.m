@@ -8,6 +8,7 @@ classdef KalmanDecoder
     H = [];
     R = [];
     P = [];
+    Xo = [];
     end
     
     methods

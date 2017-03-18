@@ -10,7 +10,7 @@ Tuning = DataSet(trial,50);
 %% Preprocessing
 %Firing Rate
 x = -5:0.1:5;
-w = gaussmf(x,[1 0]);
+w = gaussmf(x,[2.5 0]);
 Tuning = Convolution(Tuning,w);
 %Plot
 PlotTuning(Tuning)
