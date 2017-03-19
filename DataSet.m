@@ -5,6 +5,7 @@ classdef DataSet
     Nd = 8;
     Ntr = 100;
     NTrain = 1;
+    Np = 10;
     end
     
     properties
@@ -17,7 +18,7 @@ classdef DataSet
     %% Methods
     methods
         %% Constructor
-        function D = DataSet(data,NSplit)  
+        function [D,p] = DataSet(data,NSplit)  
             %% Training
             for d = 1:D.Nd
                 %Temp Struct Time
@@ -136,6 +137,42 @@ classdef DataSet
             end
             D.Nn = D.Nn - length(Index);
         end
+        %PCA
+        function D = PCA(D)
+            %Collecting Firing Rate
+            F = [];
+            for d = 1:D.Nd
+                f = D.Train{1,d}.FiringRate;
+                F = [F,f];
+            end
+            %Covariance Plot
+            Sf = cov(F');
+            [P,L] = eig(Sf);
+            L = diag(L);
+            %Select Last Vector
+            p = P(:,end-D.Np+1:end)';
+            %Figures
+            figure
+            %Covariance Matrix
+            imagesc(Sf);
+            %Eigenvalue
+            figure
+            plot(L);
+            %Create SubSpace
+            figure
+            for d = 1:D.Nd
+                f = D.Train{1,d}.FiringRate;
+                s = p*f;
+                D.Train{1,d}.Subspace = s;
+                subplot(2,4,d)
+                plot(s')
+                for n  = 1:D.NTest
+                    f = D.Test{n,d}.FiringRate;
+                    s = p*f;
+                    D.Test{n,d}.Subspace = s;
+                end
+            end        
+        end
         
         %% Regression
         %Preferred Direction
@@ -148,7 +185,7 @@ classdef DataSet
                 v = D.Train{1,d}.Velocity;
                 V = [V,v];
                 %Firing Matrix
-                f = D.Train{1,d}.FiringRate; 
+                f = D.Train{1,d}.Subspace; 
                 F = [F,f];               
             end
             %Add Line Constant
@@ -157,12 +194,15 @@ classdef DataSet
             B = F*V'*(V*V' + L*eye(3))^-1;
             figure
             hold on 
-            for i = 1:D.Nn
+            for i = 1:D.Np
                 plot([0,B(i,2)],[0,B(i,3)])
             end
+            figure
+            e = mean(abs(F-B*V),2);
+            bar(e);
         end
         %Auto-Regressive Model
-        function [A] = AutoRegression(D,L)
+        function [A] = AutoRegression(D,L,n)
             %State-Space
             Xold = [];
             Xnew = [];
@@ -174,9 +214,9 @@ classdef DataSet
                 p = D.Train{1,d}.Position(:,bd(1):bd(2));
                 P = [P,p];
             end
-            [X,x] = DataSet.Shift(y,2);
+            [X,x] = DataSet.Shift(P,n);
             %Regression
-            A = X*x'*(x*x' + L*eye(2))^-1;
+            A = X*x'*(x*x' + L*eye(2*n))^-1;
         end
         
         %Residuals
@@ -184,34 +224,28 @@ classdef DataSet
             EB = [];
             EA = [];
             h = waitbar(0,'Computing Residuals');
-            for n = 1:D.NTest
+            for n = 1:D.NTrain
                 for d = 1:D.Nd
                     %PD
-                    V = [ones(D.Nt,1), D.Test{n,d}.Velocity'];
-                    F = D.Test{n,d}.FiringRate';
-                    EB = [EB;F - V*B]; 
-                    %Velocity
-                    v = D.Test{n,d}.Velocity;
-                    x = D.Test{n,d}.Position(:,1:end-1);
-                    %xold = [x(:,1:end-1);v(:,1:end-1)];
-                    %xnew = [x(:,2:end);v(:,2:end)];
-                    xold = [v(:,1:end-1)];
-                    xnew = [v(:,2:end)]; 
-                    EA = [EA,xnew-A*xold];
+                    V = [ones(1,D.Nt); D.Test{n,d}.Velocity];
+                    F = D.Test{n,d}.Subspace;
+                    EB = [EB,F - B*V]; 
+                    p = D.Train{1,d}.Position;
+                    [Na,~] = size(A);
+                    [X,x] = DataSet.Shift(p,Na/2);
+                    EA = [EA,X - A*x];
                 end
-                waitbar(n/D.NTest);
+                waitbar(n/5);
             end
             close(h);
             %Covariance Matrix
-            R = cov(EB);
+            R = cov(EB');
             Q = cov(EA');
             figure
             subplot(1,2,1)
             imagesc(Q);
             subplot(1,2,2)
             imagesc(R);
-            %Final Plot
-            figure
         end
         %% Plot
         %Tuning
@@ -253,5 +287,36 @@ classdef DataSet
             X = [Y{z};X];
             end
         end
+        
+        %% Windows
+        %Gaussian kernel
+        function f = gaussk(x, mu, s)
+            ex = (-1/2)*((x - mu)/s).^2;
+            ar = (s * sqrt(2*pi));
+            f = (1/ar)*exp(ex);
+        end
+        %Exponential kernel
+        function f = expk(x, mu, s)
+            ex = (-sqrt(2))*abs((x-mu)/s);
+            ar = (s * sqrt(2));
+            f = (1/ar)*exp(ex);
+        end
+        %Causal kernel
+        function hw = cauk(x,sp,a)
+            q = ((a^2)*(x-sp));
+            w = exp((-a).*(x-sp));
+            for i = 1:length(q)
+                f(i)=q(i)*w(i);
+            end
+            hw = zeros(size(f));
+            for i = 1:length(f)
+                if f(i) > 0.0
+                    hw(i) = f(i);
+                else
+                    hw(i) = 0.0;
+                end
+            end
+        end
+
     end
 end
