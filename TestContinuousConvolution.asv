@@ -1,0 +1,31 @@
+clear
+close all
+hold on
+%Test Convolution
+t = 1:121;
+Test = round(rand(1,121));
+plot(Test)
+x = linspace(-5,5,20);
+w = gaussmf(x,[1 0]);
+Nw = 20;
+dt = 20;
+F = [zeros(1,dt)];
+f = [];
+for k = 40:dt:121
+    F = [F,zeros(1,dt)];
+    %Input
+    S = Test(1:k);
+    %SubSelect
+    s = S(k-2*dt+1:end);
+    C = zeros(1,2*dt);
+    for t = 1:dt
+        c = 0;
+        for l = 0:19
+            c = c + s(t+l)*w(l+1);
+        end
+        C(t+dt/2) = c; 
+    end
+    f(k) = mean(C);
+    F(k-2*dt+1:end) = F(k-2*dt+1:end) + C; 
+end
+plot(F);
