@@ -35,7 +35,7 @@
 
 function [x, y, model] = positionEstimator(test_data, model)
 %% clock
-[~,t] = size(test_data.spikes);
+[~,k] = size(test_data.spikes);
 %% Model
 dt = 20;
 w = model.window;
@@ -43,21 +43,17 @@ P = model.PCA;
 K = model.KFilter;
 zo = model.BaseFiring;
 
-%% Pre-Cue
-if t == 320
+%% Initialisation
+if k == 320
 %Initialise State
 xo = test_data.startHandPos;
-model.state = [xo;xo];
-model.KFilter = K;
-% Output
-x = xo(1);
-y = xo(2);
-%% Post-Cue
-else
+model.state = [[xo;0];[xo;0]];
+end
+
 % Reading 
-s = test_data.spikes(:,t-dt+1:end);
+S = test_data.spikes;
 % Firing Rate
-f = GetFiringRate(s,w);
+f = GetFiringRate(S,w,k,dt);
 % PCA;
 z = P*f-zo;
 %KalmanFiltering
@@ -67,18 +63,26 @@ X = model.state;
 model.state = X;
 model.KFilter = K;
 % Output
-x = 10*X(1);
-y = 10*X(2);
-end
+%r = [1;1;X(1);X(2)];
+%p = M*r;
+p = [X(1),X(2)];
+x = p(1);
+y = p(2);
+
 end
 
 %% Firing Rate
-function [f] = GetFiringRate(s,w)
-Nw = length(w);
-r = [];
-for i = 1:98
-    r = [r ; conv(w,s(i,:))];
-end
-f = r(:,Nw/2+1:end-Nw/2);
-f = mean(f,2);
+function [f] = GetFiringRate(S,w,k,dt)
+%SubSelect
+s = S(:,k-2*dt+1:end);
+[Ns,~] = size(S);
+C = zeros(Ns,2*dt);
+    for t = 1:dt
+        c = zeros(Ns,1);
+        for l = 0:dt-1
+            c = c + s(:,t+l)*w(:,l+1);
+        end
+        C(:,t+dt/2) = c; 
+    end
+    f = mean(C,2);
 end

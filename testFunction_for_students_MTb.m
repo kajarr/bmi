@@ -4,7 +4,7 @@
 % the relevant modelParameters, and then calls the function
 % "positionEstimator" to decode the trajectory. 
 
-function RMSE = testFunction_for_students_MTb(teamName)
+function [RMSE,Xreal,X] = testFunction_for_students_MTb(teamName)
 
 load Data.mat
 
@@ -30,7 +30,8 @@ grid
 
 % Train Model
 modelParameters = positionEstimatorTraining(trainingData);
-
+Xreal = [];
+X = [];
 for tr=1:size(testData,1)
     display(['Decoding block ',num2str(tr),' out of ',num2str(size(testData,1))]);
     pause(0.001)
@@ -61,12 +62,14 @@ for tr=1:size(testData,1)
         hold on
         plot(decodedHandPos(1,:),decodedHandPos(2,:), '-or');
         plot(testData(tr,direc).handPos(1,times),testData(tr,direc).handPos(2,times),'-ob')
+        Xreal = [Xreal , [testData(tr,direc).handPos(1,times);testData(tr,direc).handPos(2,times)]];
+        X = [X, decodedHandPos];
     end
 end
 
 legend('Decoded Position', 'Actual Position')
 
-RMSE = sqrt(meanSqError/n_predictions) 
+RMSE = sqrt(meanSqError/n_predictions); 
 
 rmpath(genpath(teamName))
 

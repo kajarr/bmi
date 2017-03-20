@@ -61,9 +61,9 @@ classdef DataSet
             temp.Position = (X-Xo)/N;
             temp.Velocity = V/N;
             %Polar
-            %[Xp,Vp] = DataSet.Polar(X);
-            %temp.PolarVelocity = Xp; 
-            %temp.PolarPosition = Vp;
+            [Xp,Vp] = DataSet.Polar(X);
+            temp.PolarVelocity = Xp; 
+            temp.PolarPosition = Vp;
             %Append
             D.Train{1,d} = temp;
             end
@@ -106,9 +106,9 @@ classdef DataSet
                     temp.Position = X-Xo;
                     temp.Velocity = V;
                     %Polar
-                    %[Xp,Vp] = DataSet.Polar(X);
-                    %temp.PolarVelocity = Xp; 
-                    %temp.PolarPosition = Vp;
+                    [Xp,Vp] = DataSet.Polar(X);
+                    temp.PolarVelocity = Xp; 
+                    temp.PolarPosition = Vp;
                     %Append
                     D.Test{n - NSplit,d} = temp;
                     D.NTest = D.Ntr - NSplit;
@@ -154,40 +154,52 @@ classdef DataSet
             D.Nn = D.Nn - length(Index);
         end
         %Mean TimeStep
-        function D = MeanTimeStep(D,T)
+        function D = MeanTimeStep(D,dt)
             for d = 1:D.Nd
                 x = D.Train{1,d}.Position;
                 f = D.Train{1,d}.FiringRate;
-                X = mean(x(:,1:T),2);
-                F = mean(f(:,1:T),2);
-                for t = T:T:D.Nt
-                    X = [X,mean(x(:,1:t),2)];
-                    F = [F,mean(f(:,1:t),2)];
+                X = [];
+                F = [];
+                for t = dt:dt:D.Nt-dt
+                    X = [X,x(:,t)];
+                    F = [F,mean(f(:,t-dt/2:t+dt/2),2)];
                 end
                 X = [X,X(:,end)];
                 V = diff(X')';
+                [~,Nv] = size(V);
+                Vn = [];
+                for k = 1:Nv
+                    Vn = [Vn,norm(V(:,k))];
+                end
+                D.Train{1,d}.FiringRate = F;
                 D.Train{1,d}.Position = X;
                 D.Train{1,d}.Velocity = V;
-                D.Train{1,d}.FiringRate = F;
+                D.Train{1,d}.VelocityNorm = Vn;
             end
             for n = 1:D.NTest
                 for d = 1:D.Nd
                 x = D.Test{n,d}.Position;
                 f = D.Test{n,d}.FiringRate;
-                X = mean(x(:,1:T),2);
-                F = mean(f(:,1:T),2);
-                for t = T:T:D.Nt
-                    X = [X,mean(x(:,1:t),2)];
-                    F = [F,mean(f(:,1:t),2)];
+                X = [];
+                F = [];
+                for t = dt:dt:D.Nt-dt
+                    X = [X,x(:,t)];
+                    F = [F,mean(f(:,t-dt/2:t+dt/2),2)];
                 end
                 X = [X,X(:,end)];
                 V = diff(X')';
+                [~,Nv] = size(V);
+                Vn = [];
+                for k = 1:Nv
+                    Vn = [Vn,norm(V(:,k))];
+                end
+                D.Test{n,d}.FiringRate = F; 
                 D.Test{n,d}.Position = X;
                 D.Test{n,d}.Velocity = V;
-                D.Test{n,d}.FiringRate = F;    
+                D.Test{n,d}.VelocityNorm = Vn;   
                 end
             end
-            D.Nt = length(T:T:D.Nt) + 1;
+            D.Nt = length(dt:dt:D.Nt-dt);
         end
         %PCA
         function [D,p] = PCA(D)
@@ -214,7 +226,9 @@ classdef DataSet
             figure
             for d = 1:D.Nd
                 f = D.Train{1,d}.FiringRate;
+                %Subspace 
                 s = p*f;
+                %Subspace p
                 D.Train{1,d}.Subspace = s;
                 subplot(2,4,d)
                 plot(s')
@@ -229,45 +243,59 @@ classdef DataSet
         %% Regression
         %Preferred Direction
         function [B] = GetPreDirection(D,L)
-        %Preferred Direction
+            %Preferred Direction
             temp = [];
             V = [];
             F = [];
             for d = 1:D.Nd
-                v = D.Train{1,d}.Velocity;
-                V = [V,v];
+                %Start at t = 320
+                v = D.Train{1,d}.Velocity(:,14:end);
+                vn = D.Train{1,d}.VelocityNorm(:,14:end);
+                V = [V,[v;vn]];
                 %Firing Matrix
-                f = D.Train{1,d}.Subspace; 
+                f = D.Train{1,d}.Subspace(:,14:end);
+                %Select
                 F = [F,f];               
             end
             %Add Line Constant
             [~,Nv]  = size(V); 
             V = [ones(1,Nv);V];
-            B = F*V'*(V*V' + L*eye(3))^-1;
+            B = F*V'*(V*V' + L*eye(4))^-1;
             figure
             hold on 
             for i = 1:D.Np
-                plot([0,B(i,2)],[0,B(i,3)])
+                plot3([0,B(i,2)],[0,B(i,3)],[0,B(i,4)])
             end
             figure
             e = mean(abs(F-B*V),2);
             bar(e);
         end
+            
         %Auto-Regressive Model
-        function [A] = AutoRegression(D,L,n)
+        function [Aex] = AutoRegression(D,L)
             %State-Space
             Xold = [];
             Xnew = [];
             %Collecting
             P = [];
+            V = [];
             for d = 1:D.Nd
                 %Position-Velocity
-                p = D.Train{1,d}.Position;
+                p = D.Train{1,d}.Position(:,1:end-1);
                 P = [P,p];
+                v = D.Train{1,d}.VelocityNorm;
+                V = [V,v];
             end
-            [X,x] = DataSet.Shift(P,n);
+            [X,x] = DataSet.Shift([P;V],2);
             %Regression
-            A = X*x'*(x*x' + L*eye(2*n))^-1;
+            A = X*x'*(x*x' + L*eye(6))^-1;
+            %Zeros
+            A(4:end,1:3) = eye(3);
+            A(4:end,4:end) = zeros(3,3);
+            %Extend
+            Aex = zeros(7,7);
+            Aex(1,1) = 1;
+            Aex(2:end,2:end) = A;          
         end
         %Residuals
         function [Q,R] = Residual(D,A,B)
@@ -277,12 +305,14 @@ classdef DataSet
             for n = 1:D.NTrain
                 for d = 1:D.Nd
                     %PD
-                    V = [ones(1,D.Nt); D.Test{n,d}.Velocity];
+                    V = [ones(1,D.Nt); D.Test{n,d}.Velocity;D.Test{n,d}.VelocityNorm];
                     F = D.Test{n,d}.Subspace;
                     EB = [EB,F - B*V]; 
-                    p = D.Train{1,d}.Position;
+                    p = [D.Train{1,d}.Position(:,1:end-1);D.Test{n,d}.VelocityNorm];
                     [Na,~] = size(A);
-                    [X,x] = DataSet.Shift(p,Na/2);
+                    [X,x] = DataSet.Shift(p,(Na-1)/3);
+                    X = [ones(1,D.Nt);X];
+                    x = [ones(1,D.Nt);x];
                     EA = [EA,X - A*x];
                 end
                 waitbar(n/5);
@@ -296,6 +326,44 @@ classdef DataSet
             imagesc(Q);
             subplot(1,2,2)
             imagesc(R);
+        end
+        %Linear Transformation
+        function [Ac,bc] = LinearTransformation(D,model,L)
+            %Model
+            K = model.KFilter;
+            zo = model.BaseFiring;
+            % Reading
+            R = [];
+            P = [];
+            for n = 1:D.NTrain
+                for d = 1:D.Nd
+                    p = D.Test{n,d}.Position(:,10:end-1); 
+                    sub = D.Test{n,d}.Subspace(:,10:end);
+                    xo = p(:,1);
+                    X = [xo;xo];
+                    r = [];
+                    for t = 1:21
+                        z = sub(:,t) - zo;
+                        %KalmanFiltering
+                        [K,X] = KalmanUpdate(K,X,z);
+                        r = [r,[X(1);X(2)]];
+                    end
+                    hold on
+%                     plot(r(1,:),r(2,:),'-ro')
+%                     plot(p(1,:),p(2,:),'-bo')
+                    R = [R,r];
+                    P = [P,p];
+                end
+            end
+            [~,Nr] = size(R);
+            R1 = [ones(1,Nr);R];
+            C = P*R1'*(R1*R1' + L*eye(3))^-1;
+            bc = C(:,1);
+            Ac = C(:,2:3);
+%             for t = 1:Nr
+%             p_est(:,t) = Ac*R(:,t) + bc;
+%             end
+%             plot(p_est(1,:),p_est(2,:),'-yo');
         end
         %% Plot
         %Tuning

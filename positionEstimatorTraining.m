@@ -8,7 +8,7 @@ disp('Tuning object added')
 
 %% Preprocessing
 disp('Starting preprocessing')
-disp('Compute: offline convolution')
+disp('Compute: convolution')
 %Firing Rate
 x = linspace(-5,5,20);
 w = gaussmf(x,[2.5 0]);
@@ -30,8 +30,7 @@ B = GetPreDirection(Tuning,0);
 disp('B added')
 %AutoRegressive Model
 disp('Compute: autoregressive model')
-Na = 2;
-A = AutoRegression(Tuning,0,Na);
+A = AutoRegression(Tuning,0);
 disp('A added')
 %Residual Errors
 disp('Compute: residuals')
@@ -42,17 +41,30 @@ disp('Q,R added')
 disp('Starting Kalaman filter assembly')
 %Observation
 disp('Compute: observation and base firing rate')
-[H,zo] = KalmanDecoder.Observation(B,Na,dt);
+[H,zo] = KalmanDecoder.Observation(B);
 disp('H,zo added')
 %Kalman Filter
 disp('Creating Kalman filter')
 K = KalmanDecoder(A,Q,H,R);
 disp('K object added')
 close 2 3 4 5 6 7
+
+%% Model Assembly
+disp('Assembling model')
 model = struct;
 model.KFilter = K;
 model.PCA = P;
 model.BaseFiring = zo;
 model.time = 320;
 model.window = w;
+model.B = B;
+
+%% Final Linear Correction
+% disp('Making final correction')
+% [Ac,bc] = LinearTransformation(Tuning,model,1e3);
+% disp('Ac,bc added')
+% model.Rot = Ac;
+% model.Tran = bc;
+
+disp('Model Complete')
 end

@@ -44,11 +44,18 @@ classdef KalmanDecoder
     end
     
     methods (Static)
-        function [H,Zo] = Observation(B,Na,dt)
+        function [H,Zo] = Observation(B)
             %Prepare
-            T = 1/dt*[1 0 -1  0;
-                 0 1  0 -1];
-            T = [T,zeros(2,2*(Na-2))];
+            T = [1 0 0 -1  0  0;
+                 0 1 0  0 -1  0
+                 0 0 1  0  0  0];
+            H = B(:,2:4)*T;
+            Zo = B(:,1);
+        end
+        function [H,Zo] = PolarObservation(B,r)
+            %Prepare
+            T = [1 0 -1  0;
+                 0 r  0 -r];
             H = B(:,2:3)*T;
             Zo = B(:,1);
         end
