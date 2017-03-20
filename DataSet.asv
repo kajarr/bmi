@@ -247,7 +247,7 @@ classdef DataSet
         
         %% Regression
         %Preferred Direction
-        function [B,start] = GetPreDirection(D,L,start)
+        function [B,start] = GetPreDirection(D,L)
             %Preferred Direction
             temp = [];
             V = [];
@@ -260,19 +260,19 @@ classdef DataSet
                 V = [V,[v;vn]];
                 shift = length(vn)-1;
                 %Firing Matrix
+                start = 12;
                 f = D.Train{1,d}.Subspace(:,start:start+shift);
                 %Select
                 F = [F,f];               
             end
             %Add Line Constant
-            [Nc,Nv]  = size(V); 
+            [~,Nv]  = size(V); 
             V = [ones(1,Nv);V];
-            B = F*V'*(V*V' + L*eye(Nc+1))^-1;
+            B = F*V'*(V*V' + L*eye(4))^-1;
             figure
             hold on 
             for i = 1:D.Np
-                plot([0,B(i,2)],[0,B(i,3)])
-                %plot3([0,B(i,2)],[0,B(i,3)],[0,B(i,4)])
+                plot3([0,B(i,2)],[0,B(i,3)],[0,B(i,4)])
             end
             figure
             e = mean(abs(F-B*V),2);
@@ -286,22 +286,18 @@ classdef DataSet
             %Collecting
             P = [];
             V = [];
-            Vn = [];
             for d = 1:D.Nd
                 %Position-Velocity
                 p = D.Train{1,d}.Position(:,1:end-1);
                 P = [P,p];
                 v = D.Train{1,d}.Velocity;
                 V = [V,v];
-                vn = D.Train{1,d}.VelocityNorm;
-                Vn = [Vn,vn];
             end
-            [X,x] = DataSet.Shift([P;V;Vn],na);
-            [Nx,~] = size(X);
+            [X,x] = DataSet.Shift([P;V],);
             %Regression
-            A = X*x'*(x*x' + L*eye(Nx))^-1;
+            A = X*x'*(x*x' + L*eye(4))^-1;
             %Extend
-            Aex = zeros(Nx+1,Nx+1);
+            Aex = zeros(5,5);
             Aex(1,1) = 1;
             Aex(2:end,2:end) = A;          
         end
@@ -316,7 +312,7 @@ classdef DataSet
                     V = [ones(1,D.Nt); D.Test{n,d}.Velocity;D.Test{n,d}.VelocityNorm];
                     F = D.Test{n,d}.Subspace;
                     EB = [EB,F - B*V]; 
-                    p = [D.Train{1,d}.Position(:,1:end-1);D.Test{n,d}.Velocity;D.Test{n,d}.VelocityNorm];
+                    p = [D.Train{1,d}.Position(:,1:end-1);D.Test{n,d}.Velocity];
                     [Na,~] = size(A);
                     [X,x] = DataSet.Shift(p,na);
                     [~,Nshift] = size(X);

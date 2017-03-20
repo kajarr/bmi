@@ -1,0 +1,16 @@
+%% Main_Test
+close all
+clear
+set(0,'DefaultFigureWindowStyle','docked')
+
+teamname = 'CDT';
+[RMSE,Xreal,X] = testFunction_for_students_MTb(teamname);
+
+%Bias Correction
+Vr = diff(Xreal')';
+V = diff(X')';
+[~,Nv] = size(V);
+Vr = [ones(1,Nv);Vr];
+M = V*Vr'*(Vr*Vr')^-1;
+
+            

@@ -8,11 +8,6 @@ classdef KalmanDecoder
     H = [];
     R = [];
     P = [];
-    C =  [];
-    C1 = [];
-    C2 = [];
-    C3 = [];
-    
     end
     
     methods
@@ -30,23 +25,20 @@ classdef KalmanDecoder
             Filter.P = zeros(n,n);
         end
         %% Update
-        function [K,XNew] = KalmanUpdate(K,XOld,Z)
+        function [Filter,XNew] = KalmanUpdate(Filter,XOld,Z)
             %Estimation
-            XEst = K.A*XOld;
+            XEst = Filter.A*XOld;
             %Update System Variance
-            Pm = K.A*K.P*K.A' + K.Q;
+            Pm = Filter.A*Filter.P*Filter.A' + Filter.Q;
             %Kalman Gain
-            Kg = Pm*K.H'*(K.H*Pm*K.H' + K.R)^-1;
+            Kg = Pm*Filter.H'*(Filter.H*Pm*Filter.H' + Filter.R)^-1;
             %Correction
-            XNew = XEst + Kg*(Z - K.H*XEst);
-            K.C =  [K.C,XEst];
-            K.C1 = [K.C1,Kg*(Z - K.H*XEst)];
-            K.C2 = [K.C2,Kg*(Z)];
-            K.C3 = [K.C3,Kg*(K.H*XEst)];
-            
+            XNew = XEst + Kg*(Z - Filter.H*XEst);
+            C = Kg*(Z - Filter.H*XEst);
             %Update Error Covariance
-            K.P  = (eye(K.Nx)-Kg*K.H)*Pm;
-            
+            Filter.P  = (eye(Filter.Nx)-Kg*Filter.H)*Pm;
+            plot(XEst(2),XEst(3),'og');
+            plot(C(1))
         end
         function [Filter] = ReInitialise(Filter)
             [n,~] = size(Filter.P);
